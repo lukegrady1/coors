@@ -1,0 +1,6 @@
+# Ignore root assets already copied into coors-site/public
+screenshot.PNG
+
+# OS files
+.DS_Store
+Thumbs.db

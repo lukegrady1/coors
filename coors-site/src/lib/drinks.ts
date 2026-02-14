@@ -26,12 +26,20 @@ export const drinks: DrinkVariant[] = [
   },
 ];
 
-const BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH || "";
+function getBasePath(): string {
+  if (typeof window === "undefined") return "";
+  try {
+    return (window as unknown as { __NEXT_DATA__: { basePath?: string } }).__NEXT_DATA__?.basePath || "";
+  } catch {
+    return "";
+  }
+}
 
 export async function loadFramePaths(): Promise<string[]> {
-  const res = await fetch(`${BASE_PATH}/frames.json`);
+  const base = getBasePath();
+  const res = await fetch(`${base}/frames.json`);
   const paths: string[] = await res.json();
-  return paths.map((p) => `${BASE_PATH}${p}`);
+  return paths.map((p) => `${base}${p}`);
 }
 
 export const NAV_SECTIONS = [

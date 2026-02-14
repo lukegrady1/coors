@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import Image from "next/image";
+import coorsLogo from "../../public/coorslight_logo.png";
 
 const fadeUp = {
   initial: { opacity: 0, y: 40 },
@@ -53,7 +54,7 @@ export function ProductSection() {
         <div className="flex items-center justify-center">
           <div className="flex aspect-square w-full max-w-md items-center justify-center rounded-3xl border border-[#1A3A52] bg-[#0F1620] p-12">
             <Image
-              src="/coorslight_logo.png"
+              src={coorsLogo}
               alt="Coors Light"
               width={400}
               height={300}

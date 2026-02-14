@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import Image from "next/image";
 import { NAV_SECTIONS } from "@/lib/drinks";
+import coorsLogo from "../../public/coorslight_logo.png";
 
 export default function Navbar() {
   const [activeSection, setActiveSection] = useState("");
@@ -66,7 +67,7 @@ export default function Navbar() {
           className="relative shrink-0"
         >
           <Image
-            src="/coorslight_logo.png"
+            src={coorsLogo}
             alt="Coors Light"
             width={120}
             height={60}

@@ -17,7 +17,7 @@ import {
 } from "@/components/Sections";
 
 const SCROLL_HEIGHT_MULTIPLIER = 5;
-const INITIAL_BATCH_SIZE = 60;
+const INITIAL_BATCH_SIZE = 20;
 
 export default function Home() {
   const [loadingProgress, setLoadingProgress] = useState(0);

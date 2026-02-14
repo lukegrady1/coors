@@ -17,41 +17,32 @@ import {
 } from "@/components/Sections";
 
 const SCROLL_HEIGHT_MULTIPLIER = 5;
+const INITIAL_BATCH_SIZE = 20;
 
 export default function Home() {
   const [loadingProgress, setLoadingProgress] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [currentDrinkIndex, setCurrentDrinkIndex] = useState(0);
   const [isTransitioning, setIsTransitioning] = useState(false);
-  const [activeFrames, setActiveFrames] = useState<HTMLImageElement[]>([]);
-  const framePathsRef = useRef<string[]>([]);
-  const cachedFramesRef = useRef<HTMLImageElement[] | null>(null);
+  const [frameCount, setFrameCount] = useState(0);
 
-  const currentDrink = drinks[currentDrinkIndex];
+  // Mutable ref that grows as frames load — ParallaxCanvas reads from this
+  const framesRef = useRef<(HTMLImageElement | null)[]>([]);
+  const totalFramesRef = useRef(0);
 
-  const preloadImages = useCallback(
-    (paths: string[], onProgress?: (pct: number) => void): Promise<HTMLImageElement[]> => {
-      if (cachedFramesRef.current) return Promise.resolve(cachedFramesRef.current);
-
-      const total = paths.length;
-      let loaded = 0;
-
+  const loadBatch = useCallback(
+    (paths: string[], start: number, end: number): Promise<void> => {
       return new Promise((resolve) => {
-        const images: HTMLImageElement[] = new Array(total);
-        let resolved = false;
+        const batchSize = end - start;
+        let loaded = 0;
 
-        for (let i = 0; i < total; i++) {
+        for (let i = start; i < end; i++) {
           const img = new Image();
           img.src = paths[i];
           img.onload = img.onerror = () => {
+            framesRef.current[i] = img;
             loaded++;
-            images[i] = img;
-            onProgress?.((loaded / total) * 100);
-            if (loaded === total && !resolved) {
-              resolved = true;
-              cachedFramesRef.current = images;
-              resolve(images);
-            }
+            if (loaded === batchSize) resolve();
           };
         }
       });
@@ -60,14 +51,56 @@ export default function Home() {
   );
 
   useEffect(() => {
-    loadFramePaths().then((paths) => {
-      framePathsRef.current = paths;
-      preloadImages(paths, setLoadingProgress).then((frames) => {
-        setActiveFrames(frames);
-        setTimeout(() => setIsLoading(false), 500);
+    let cancelled = false;
+
+    loadFramePaths().then(async (paths) => {
+      const total = paths.length;
+      totalFramesRef.current = total;
+      framesRef.current = new Array(total).fill(null);
+
+      // Phase 1: Load first batch — drives the loading bar to ~100%
+      const firstBatch = Math.min(INITIAL_BATCH_SIZE, total);
+
+      let phase1Loaded = 0;
+      await new Promise<void>((resolve) => {
+        for (let i = 0; i < firstBatch; i++) {
+          const img = new Image();
+          img.src = paths[i];
+          img.onload = img.onerror = () => {
+            framesRef.current[i] = img;
+            phase1Loaded++;
+            if (!cancelled) {
+              setLoadingProgress((phase1Loaded / firstBatch) * 100);
+            }
+            if (phase1Loaded === firstBatch) resolve();
+          };
+        }
       });
+
+      if (cancelled) return;
+
+      // Show the site immediately
+      setFrameCount(firstBatch);
+      setTimeout(() => setIsLoading(false), 400);
+
+      // Phase 2: Load remaining frames in small chunks in the background
+      const CHUNK_SIZE = 10;
+      for (let start = firstBatch; start < total; start += CHUNK_SIZE) {
+        if (cancelled) return;
+        const end = Math.min(start + CHUNK_SIZE, total);
+        await loadBatch(paths, start, end);
+        if (!cancelled) {
+          setFrameCount(end);
+        }
+      }
     });
-  }, [preloadImages]);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [loadBatch]);
+
+  const currentDrink = drinks[currentDrinkIndex];
 
   const switchDrink = useCallback(
     async (newIndex: number) => {
@@ -108,7 +141,12 @@ export default function Home() {
 
           {/* Parallax hero wrapper */}
           <div style={{ height: scrollHeight }}>
-            <ParallaxCanvas frames={activeFrames} scrollHeight={scrollHeight} />
+            <ParallaxCanvas
+              framesRef={framesRef}
+              frameCount={frameCount}
+              totalFrames={totalFramesRef.current}
+              scrollHeight={scrollHeight}
+            />
             <div className="sticky top-0 h-screen">
               <HeroOverlay
                 drink={currentDrink}

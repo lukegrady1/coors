@@ -1,13 +1,20 @@
 "use client";
 
-import { useEffect, useRef, useCallback } from "react";
+import { useEffect, useRef, useCallback, type MutableRefObject } from "react";
 
 interface ParallaxCanvasProps {
-  frames: HTMLImageElement[];
+  framesRef: MutableRefObject<(HTMLImageElement | null)[]>;
+  frameCount: number;
+  totalFrames: number;
   scrollHeight: number;
 }
 
-export default function ParallaxCanvas({ frames, scrollHeight }: ParallaxCanvasProps) {
+export default function ParallaxCanvas({
+  framesRef,
+  frameCount,
+  totalFrames,
+  scrollHeight,
+}: ParallaxCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const currentFrameRef = useRef(0);
   const rafRef = useRef<number>(0);
@@ -15,12 +22,24 @@ export default function ParallaxCanvas({ frames, scrollHeight }: ParallaxCanvasP
   const drawFrame = useCallback(
     (frameIndex: number) => {
       const canvas = canvasRef.current;
-      if (!canvas || !frames[frameIndex]) return;
+      if (!canvas) return;
+
+      // Find the requested frame, or fall back to the nearest loaded frame
+      let img = framesRef.current[frameIndex];
+      if (!img) {
+        // Search backward for the nearest loaded frame
+        for (let i = frameIndex - 1; i >= 0; i--) {
+          if (framesRef.current[i]) {
+            img = framesRef.current[i];
+            break;
+          }
+        }
+      }
+      if (!img) return;
 
       const ctx = canvas.getContext("2d");
       if (!ctx) return;
 
-      const img = frames[frameIndex];
       const canvasW = canvas.width;
       const canvasH = canvas.height;
 
@@ -44,7 +63,7 @@ export default function ParallaxCanvas({ frames, scrollHeight }: ParallaxCanvasP
       ctx.clearRect(0, 0, canvasW, canvasH);
       ctx.drawImage(img, drawX, drawY, drawW, drawH);
     },
-    [frames]
+    [framesRef]
   );
 
   useEffect(() => {
@@ -62,8 +81,13 @@ export default function ParallaxCanvas({ frames, scrollHeight }: ParallaxCanvasP
     return () => window.removeEventListener("resize", handleResize);
   }, [drawFrame]);
 
+  // Redraw current frame when new frames finish loading
   useEffect(() => {
-    if (frames.length === 0) return;
+    drawFrame(currentFrameRef.current);
+  }, [frameCount, drawFrame]);
+
+  useEffect(() => {
+    if (totalFrames === 0) return;
 
     drawFrame(0);
 
@@ -74,8 +98,8 @@ export default function ParallaxCanvas({ frames, scrollHeight }: ParallaxCanvasP
         const maxScroll = scrollHeight - window.innerHeight;
         const scrollFraction = Math.min(Math.max(scrollTop / maxScroll, 0), 1);
         const frameIndex = Math.min(
-          Math.floor(scrollFraction * (frames.length - 1)),
-          frames.length - 1
+          Math.floor(scrollFraction * (totalFrames - 1)),
+          totalFrames - 1
         );
 
         if (frameIndex !== currentFrameRef.current) {
@@ -90,7 +114,7 @@ export default function ParallaxCanvas({ frames, scrollHeight }: ParallaxCanvasP
       window.removeEventListener("scroll", handleScroll);
       cancelAnimationFrame(rafRef.current);
     };
-  }, [frames, scrollHeight, drawFrame]);
+  }, [totalFrames, scrollHeight, drawFrame]);
 
   return (
     <canvas

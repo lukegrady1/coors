@@ -20,6 +20,8 @@ jobs:
     defaults:
       run:
         working-directory: coors-site
+    env:
+      NEXT_PUBLIC_BASE_PATH: /coors
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -33,9 +35,6 @@ jobs:
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
-        with:
-          static_site_generator: next
-          generator_config_file: coors-site/next.config.ts
 
       - name: Restore cache
         uses: actions/cache@v4
